@@ -3,8 +3,12 @@ package main
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"time"
 	"unicode"
 
 	_ "embed"
@@ -15,6 +19,7 @@ import (
 
 func main(){
 	e := echo.New()
+	e.HideBanner = true
 	setupRoutes(e)
 
 	db, dbErr := ConnectToDB("data.db")
@@ -27,6 +32,37 @@ func main(){
 	adminErr := createAdminUserIfNotExists(db)
 	ensureNil(adminErr)
 
+	sessionStore := NewSessionStore()
+
+	const DefaultTTL = 10 * time.Second
+
+	/*** Routes ***/
+	e.GET("/", func(c echo.Context) error {
+		return c.String(http.StatusOK, "hello")
+	})
+
+	e.POST("/login", func(c echo.Context) error {
+		req := c.Request()
+		loginReq := loginRequest{}
+		data, _ := io.ReadAll(req.Body) // TODO: Limit request size
+		jsonErr := json.Unmarshal(data, &loginReq)
+		if jsonErr != nil {
+			return c.String(http.StatusBadRequest, "Bad request")
+		}
+
+		sessionKey, sessErr := sessionStore.BeginSession(db, loginReq.Username, loginReq.Password, DefaultTTL)
+		if sessErr != nil {
+			return c.String(http.StatusUnauthorized, "Failed to initialize session, invalid credentials")
+		}
+		loginRes := loginResponse{
+			Key: sessionKey,
+			TimeToLive: DefaultTTL,
+		}
+
+		resData, _ := json.Marshal(&loginRes)
+		return c.JSONBlob(http.StatusOK, resData)
+	})
+	/**************/
 
 	log.Fatalf(e.Start(":8080").Error())
 }
@@ -54,6 +90,23 @@ func createAdminUserIfNotExists(db *sql.DB) (err error) {
 func GetUserByID(db *sql.DB, id Id) (user User, found bool, err error){
 	var dbHash, dbSalt string
 	row := db.QueryRow("select id, name, auth_hash, auth_salt from Users where id = $1", id)
+	err = row.Scan(&user.id, &user.name, &dbHash, &dbSalt)
+
+	if err == sql.ErrNoRows {
+		return user, false, nil
+	} else if err != nil {
+		return user, false, err
+	}
+
+	user.authHash, _ = base64Decode(dbHash)
+	user.authSalt, _ = base64Decode(dbSalt)
+
+	return user, true, nil
+}
+
+func GetUserByName(db *sql.DB, name string) (user User, found bool, err error){
+	var dbHash, dbSalt string
+	row := db.QueryRow("select id, name, auth_hash, auth_salt from Users where name = $1", name)
 	err = row.Scan(&user.id, &user.name, &dbHash, &dbSalt)
 
 	if err == sql.ErrNoRows {
