@@ -1,13 +1,15 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
 	"time"
 	"unicode"
 
@@ -17,10 +19,40 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func StartServer(e *echo.Echo){
+	quit, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	server := http.Server {
+		Addr: ":8080",
+		Handler: e,
+	}
+
+	go func(server *http.Server){
+		fmt.Println("-> Server Listening on", server.Addr)
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed){
+			log.Fatal(err.Error())
+		}
+		cancel() // If the server exits before the signal
+	}(&server)
+
+	// Wait for server to exit
+	<-quit.Done()
+
+	fmt.Print("-> Shutting down server...")
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 5 * time.Second)
+	defer cancelShutdown()
+
+	if err := server.Shutdown(ctxShutdown); err != nil {
+		log.Fatalf(err.Error())
+	} else {
+		fmt.Println(" OK")
+	}
+}
+
 func main(){
 	e := echo.New()
 	e.HideBanner = true
-	setupRoutes(e)
 
 	db, dbErr := ConnectToDB("data.db")
 	ensureNil(dbErr)
@@ -34,37 +66,10 @@ func main(){
 
 	sessionStore := NewSessionStore()
 
-	const DefaultTTL = 10 * time.Second
+	setupRoutes(e, sessionStore, db)
 
-	/*** Routes ***/
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "hello")
-	})
-
-	e.POST("/login", func(c echo.Context) error {
-		req := c.Request()
-		loginReq := loginRequest{}
-		data, _ := io.ReadAll(req.Body) // TODO: Limit request size
-		jsonErr := json.Unmarshal(data, &loginReq)
-		if jsonErr != nil {
-			return c.String(http.StatusBadRequest, "Bad request")
-		}
-
-		sessionKey, sessErr := sessionStore.BeginSession(db, loginReq.Username, loginReq.Password, DefaultTTL)
-		if sessErr != nil {
-			return c.String(http.StatusUnauthorized, "Failed to initialize session, invalid credentials")
-		}
-		loginRes := loginResponse{
-			Key: sessionKey,
-			TimeToLive: DefaultTTL,
-		}
-
-		resData, _ := json.Marshal(&loginRes)
-		return c.JSONBlob(http.StatusOK, resData)
-	})
-	/**************/
-
-	log.Fatalf(e.Start(":8080").Error())
+	StartServer(e)
+	// log.Fatalf(e.Start(":8080").Error())
 }
 
 const ADMIN_PASS = "123"

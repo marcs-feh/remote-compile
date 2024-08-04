@@ -29,11 +29,13 @@ type SessionStore struct {
 	mutex *sync.Mutex
 }
 
-func NewSessionStore() SessionStore {
-	return SessionStore{
+func NewSessionStore() *SessionStore {
+	s := new(SessionStore)
+	*s = SessionStore{
 		sessions: make(map[SessionKey]Session),
 		mutex: new(sync.Mutex),
 	}
+	return s
 }
 
 func (store *SessionStore) BeginSession(db *sql.DB, username, password string, ttl time.Duration) (sessionKey SessionKey, err error) {
