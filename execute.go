@@ -47,10 +47,12 @@ func buildSource(filename string, sourceData string, builder LanguageBuilder) Ex
 	filename = filename + "." + builder.Ext()
 
 	file, err := os.Create(filename)
-	if !errors.Is(err, os.ErrExist) {
+	if err != nil && !errors.Is(err, os.ErrExist) {
 		panic(err.Error())
 	}
-	if err := file.Chmod(0o700); err != nil {
+	defer file.Close()
+
+	if err := file.Chmod(0o600); err != nil {
 		panic(err.Error())
 	}
 

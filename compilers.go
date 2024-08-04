@@ -13,15 +13,15 @@ type OdinBuilder struct {}
 
 var DefaultOdinBuilder OdinBuilder
 
-func (b *OdinBuilder) Name() string {
+func (b OdinBuilder) Name() string {
 	return "Odin"
 }
 
-func (b *OdinBuilder) Ext() string {
+func (b OdinBuilder) Ext() string {
 	return "odin"
 }
 
-func (b *OdinBuilder) Build(path string, args ...string) []string {
+func (b OdinBuilder) Build(path string, args ...string) []string {
 	cmd := []string{
 		"odin", "build", path, "-file",
 	}
@@ -29,15 +29,15 @@ func (b *OdinBuilder) Build(path string, args ...string) []string {
 	return cmd
 }
 
-func (b *OdinBuilder) Run(path string, args ...string) []string {
+func (b OdinBuilder) Run(path string, args ...string) []string {
 	cmd := []string{
-		"odin", "run", path, "-file",
+		path,
 	}
 	cmd = append(cmd, args...)
 	return cmd
 }
 
-func (b *OdinBuilder) Test(path string, args ...string) []string {
+func (b OdinBuilder) Test(path string, args ...string) []string {
 	cmd := []string{
 		"odin", "test", path, "-file",
 	}

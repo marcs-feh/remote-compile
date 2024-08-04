@@ -1,2 +1,5 @@
 remote-compile
 *.db
+*.odin
+*.rs
+*.bin

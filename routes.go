@@ -3,9 +3,9 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -55,12 +55,33 @@ func setupRoutes(e *echo.Echo, sessionStore *SessionStore, db *sql.DB){
 			return c.String(http.StatusUnauthorized, "Failed to verify session")
 		}
 
+		var builder LanguageBuilder
+
 		switch lang {
 		case "odin":
-			return c.String(200, c.Param("language"))
+			builder = OdinBuilder{}
+
 		default:
 			return c.String(http.StatusNotFound, "Unavailable language")
 		}
+
+		status := buildSource("main-odin",
+			`package main
+
+			main :: proc(){
+			}
+		`, builder)
+
+		compileRes := compileCodeResponse {
+			Success: status.Success,
+			Stdout: strings.TrimRight(string(status.Stdout), "\u0000"),
+			Stderr: strings.TrimRight(string(status.Stderr), "\u0000"),
+			ElapsedMs: status.Elapsed.Milliseconds(),
+		}
+
+		jsonBlob, _ := json.Marshal(compileRes)
+
+		return c.JSONBlob(200, jsonBlob)
 	})
 }
 
@@ -76,6 +97,15 @@ type compileCodeRequest struct {
 }
 
 type compileCodeResponse struct {
+	Success bool `json:"success"`
+	Stdout string `json:"stdout"`
+	Stderr string `json:"stderr"`
+	ElapsedMs int64 `json:"elapsed_time"`
+}
+
+type runCodeRequest struct {
+	Auth authRequestPart `json:"auth"`
+	Args []string `json:"args"`
 }
 
 type loginRequest struct {
