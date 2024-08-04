@@ -89,7 +89,6 @@ func (store *SessionStore) EndSession(key SessionKey){
 	delete(store.sessions, key)
 }
 
-
 func generateRandomBytes(nbytes int) ([]byte, error) {
 	buf := make([]byte, nbytes)
 	n, err := rand.Reader.Read(buf)

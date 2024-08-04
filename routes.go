@@ -65,12 +65,7 @@ func setupRoutes(e *echo.Echo, sessionStore *SessionStore, db *sql.DB){
 			return c.String(http.StatusNotFound, "Unavailable language")
 		}
 
-		status := buildSource("main-odin",
-			`package main
-
-			main :: proc(){
-			}
-		`, builder)
+		status := buildSource("TODO-change-this", compileReq.Source, builder)
 
 		compileRes := compileCodeResponse {
 			Success: status.Success,
@@ -81,10 +76,13 @@ func setupRoutes(e *echo.Echo, sessionStore *SessionStore, db *sql.DB){
 
 		jsonBlob, _ := json.Marshal(compileRes)
 
-		return c.JSONBlob(200, jsonBlob)
+		return c.JSONBlob(http.StatusOK, jsonBlob)
+	})
+
+	e.POST("/run/:language", func(c echo.Context) error {
+		return c.String(400, "TODO")
 	})
 }
-
 
 type authRequestPart struct {
 	Username string `json:"username"`
