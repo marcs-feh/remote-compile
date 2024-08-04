@@ -38,6 +38,21 @@ func setupRoutes(e *echo.Echo, sessionStore *SessionStore, db *sql.DB){
 		resData, _ := json.Marshal(&loginRes)
 		return c.JSONBlob(http.StatusOK, resData)
 	})
+
+}
+
+type authRequestPart struct {
+	Username string `json:"username"`
+	Key SessionKey `json:"session_key"`
+}
+
+type compileCodeRequest struct {
+	Auth authRequestPart `json:"auth"`
+	Source string `json:"source_code"`
+	Language string `json:"language"`
+}
+
+type compileCodeResponse struct {
 }
 
 type loginRequest struct {
