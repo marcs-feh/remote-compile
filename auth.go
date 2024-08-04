@@ -17,6 +17,7 @@ const SessionKeyLength = 128
 
 type Session struct {
 	userId Id
+	userName string
 	created time.Time
 	timeToLive time.Duration
 }
@@ -38,6 +39,18 @@ func NewSessionStore() *SessionStore {
 	return s
 }
 
+func (store *SessionStore) ValidateSession(username string, key SessionKey) bool {
+	store.mutex.Lock()
+	sesh, ok := store.sessions[key]
+	store.mutex.Unlock()
+
+	if !ok {
+		return false
+	}
+
+	return sesh.userName == username
+}
+
 func (store *SessionStore) BeginSession(db *sql.DB, username, password string, ttl time.Duration) (sessionKey SessionKey, err error) {
 	user, found, err := GetUserByName(db, username)
 	if !found || err != nil {
@@ -57,6 +70,7 @@ func (store *SessionStore) BeginSession(db *sql.DB, username, password string, t
 	sessionKey = SessionKey(base64Encode(keyBytes))
 
 	session := Session {
+		userName: user.name,
 		userId: user.id,
 		created: time.Now(),
 		timeToLive: ttl,

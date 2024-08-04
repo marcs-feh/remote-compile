@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -40,3 +42,22 @@ func Execute(binName string, args ...string) ExecStatus {
 
 	return status
 }
+
+func buildSource(filename string, sourceData string, builder LanguageBuilder) ExecStatus {
+	filename = filename + "." + builder.Ext()
+
+	file, err := os.Create(filename)
+	if !errors.Is(err, os.ErrExist) {
+		panic(err.Error())
+	}
+	if err := file.Chmod(0o700); err != nil {
+		panic(err.Error())
+	}
+
+	file.Write([]byte(sourceData))
+
+	args := builder.Build(filename)
+	status := Execute(args[0], args[1:]...)
+	return status
+}
+

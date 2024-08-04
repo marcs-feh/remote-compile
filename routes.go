@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -39,7 +40,30 @@ func setupRoutes(e *echo.Echo, sessionStore *SessionStore, db *sql.DB){
 		return c.JSONBlob(http.StatusOK, resData)
 	})
 
+	e.POST("/compile/:language", func(c echo.Context) error {
+		lang := c.Param("language")
+		req := c.Request()
+		compileReq := compileCodeRequest{}
+
+		blob, _ := io.ReadAll(req.Body) // TODO: Limit size
+		err := json.Unmarshal(blob, &compileReq)
+		if err != nil { return c.String(http.StatusBadRequest, "Bad Request") }
+
+		authorized := sessionStore.ValidateSession(compileReq.Auth.Username, compileReq.Auth.Key)
+
+		if !authorized {
+			return c.String(http.StatusUnauthorized, "Failed to verify session")
+		}
+
+		switch lang {
+		case "odin":
+			return c.String(200, c.Param("language"))
+		default:
+			return c.String(http.StatusNotFound, "Unavailable language")
+		}
+	})
 }
+
 
 type authRequestPart struct {
 	Username string `json:"username"`
@@ -49,7 +73,6 @@ type authRequestPart struct {
 type compileCodeRequest struct {
 	Auth authRequestPart `json:"auth"`
 	Source string `json:"source_code"`
-	Language string `json:"language"`
 }
 
 type compileCodeResponse struct {

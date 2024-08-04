@@ -177,7 +177,7 @@ func CreateUser(db *sql.DB, username, password string) (user User, err error) {
 }
 
 func validateUsername(name string) bool {
-	if len(name) < 2 { return false }
+	if len(name) < 2 || len(name) > 32 { return false }
 
 	for _, c := range name {
 		ascii := c < 127
